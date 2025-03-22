@@ -1,0 +1,163 @@
+/* Styles pour le dashboard Polyad */
+
+/* Styles généraux */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: #f5f5f5;
+}
+
+.v-application {
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Styles pour les cartes */
+.v-card {
+    margin-bottom: 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.v-card__title {
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+/* Styles pour les graphiques */
+canvas {
+    width: 100% !important;
+}
+
+/* Styles pour les tableaux */
+.v-data-table {
+    border-radius: 8px;
+}
+
+.v-data-table th {
+    font-weight: 500 !important;
+}
+
+/* Styles pour les images */
+.img-fluid {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Animations */
+.fade-enter-active, .fade-leave-active {
+    transition: opacity 0.3s;
+}
+
+.fade-enter, .fade-leave-to {
+    opacity: 0;
+}
+
+/* Styles pour les métriques */
+.metric-card {
+    transition: transform 0.3s;
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Styles pour la barre de navigation */
+.v-navigation-drawer {
+    background-color: #f5f5f5;
+}
+
+.v-list-item--active {
+    background-color: rgba(25, 118, 210, 0.1) !important;
+}
+
+.v-list-item--active .v-list-item__icon {
+    color: #1976D2 !important;
+}
+
+/* Styles pour les boutons */
+.v-btn {
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 500;
+}
+
+/* Styles pour les alertes */
+.v-alert {
+    border-radius: 8px;
+}
+
+/* Styles pour les dialogues */
+.v-dialog {
+    border-radius: 8px;
+}
+
+/* Styles pour les snackbars */
+.v-snackbar {
+    border-radius: 8px;
+}
+
+/* Styles pour les onglets */
+.v-tabs {
+    border-radius: 8px 8px 0 0;
+}
+
+/* Styles pour les champs de formulaire */
+.v-text-field__slot input {
+    font-size: 14px;
+}
+
+/* Styles pour les icônes */
+.v-icon {
+    font-size: 20px;
+}
+
+/* Styles pour le pied de page */
+.v-footer {
+    background-color: #f5f5f5 !important;
+    color: rgba(0, 0, 0, 0.6) !important;
+    font-size: 0.875rem;
+}
+
+/* Styles pour les tooltips */
+.v-tooltip__content {
+    background-color: rgba(33, 33, 33, 0.9);
+    color: white;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+/* Styles pour le mode sombre */
+.theme--dark .v-navigation-drawer {
+    background-color: #1E1E1E !important;
+}
+
+.theme--dark .v-footer {
+    background-color: #1E1E1E !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* Styles pour les graphiques en mode sombre */
+.theme--dark canvas {
+    filter: invert(0.85) hue-rotate(180deg);
+}
+
+/* Styles responsive */
+@media (max-width: 960px) {
+    .v-card__title {
+        font-size: 1.1rem;
+    }
+    
+    .v-btn {
+        font-size: 0.875rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .v-card__title {
+        font-size: 1rem;
+    }
+    
+    .v-btn {
+        font-size: 0.75rem;
+    }
+}

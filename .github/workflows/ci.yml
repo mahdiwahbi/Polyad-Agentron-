@@ -1,0 +1,120 @@
+name: Polyad CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+
+      - name: Install Homebrew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+      - name: Install system dependencies
+        run: |
+          brew install ollama
+          brew install portaudio
+          brew install ffmpeg
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pull Ollama models
+        run: |
+          ollama pull gemma3:12b-q4_0
+          ollama pull gemma3:12b-q2_K
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/
+
+      - name: Run benchmarks
+        run: |
+          python -m benchmarks.benchmark
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-results
+          path: test-results/
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install docker-compose
+
+      - name: Build Docker images
+        run: |
+          docker-compose build
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker images
+        run: |
+          docker-compose push
+
+      - name: Deploy to Production
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: eu-west-1
+        run: |
+          aws eks update-kubeconfig --name polyad-cluster --region $AWS_REGION
+          kubectl apply -f kubernetes/production/
+
+      - name: Run post-deployment checks
+        run: |
+          # Vérifier le statut des pods
+          kubectl get pods
+          
+          # Vérifier les logs
+          kubectl logs -l app=polyad --tail=100
+
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          author_name: GitHub Actions
+          author_link: ${{ github.event.repository.html_url }}
+          title: Deployment Status
+          title_link: ${{ github.event.repository.html_url }}/actions/runs/${{ github.run_id }}
+          text: |
+            Environment: Production
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+            Status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}

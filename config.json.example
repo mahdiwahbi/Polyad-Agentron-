@@ -1,0 +1,50 @@
+{
+  "temperature": 0.7,
+  "max_memory_tokens": 300,
+  "parallel_iterations": 6,
+  "enable_fallback": true,
+  "max_retries": 3,
+  "retry_delay": 1.0,
+  "backoff_factor": 2.0,
+  "default_timeout": 30.0,
+  "refinement_timeout": 15.0,
+  "cache_ttl": 86400,
+  "log_level": "INFO",
+  "resource_limits": {
+    "max_cpu_percent": 90,
+    "min_ram_available_gb": 2.0,
+    "max_temperature": 85
+  },
+  "models": {
+    "default": "gemma3:12b-q4_0",
+    "fallback": "gemma3:12b-q2_K",
+    "lightweight": "gemma3:2b-q2_K"
+  },
+  "tools": {
+    "web_search": {
+      "enabled": true,
+      "max_results": 5,
+      "timeout": 10.0
+    },
+    "image_processing": {
+      "enabled": true,
+      "max_size": 1024,
+      "formats": ["jpg", "png", "webp"]
+    },
+    "system_commands": {
+      "enabled": true,
+      "allowed_prefixes": ["ls", "cat", "echo", "find"],
+      "timeout": 5.0
+    }
+  },
+  "cache": {
+    "enabled": true,
+    "max_size_mb": 500,
+    "cleanup_interval": 3600
+  },
+  "async": {
+    "max_workers": 6,
+    "default_timeout": 30.0,
+    "max_concurrent_tasks": 10
+  }
+}

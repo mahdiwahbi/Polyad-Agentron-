@@ -1,0 +1,7 @@
+{
+  "secret_key": "polyad_secure_jwt_token_for_production_2025",
+  "algorithm": "HS256",
+  "token_expiration": 86400,
+  "refresh_token_expiration": 604800,
+  "issuer": "polyad-auth"
+}

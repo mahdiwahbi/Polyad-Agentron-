@@ -1,0 +1,87 @@
+# Configuration de sécurité pour Polyad en production
+
+# Authentification
+authentication:
+  jwt:
+    enabled: true
+    config_path: .secrets/jwt_config.json
+  multi_factor:
+    enabled: false
+    provider: null  # 'duo', 'authy', etc.
+
+# Autorisation
+authorization:
+  default_role: "user"
+  roles:
+    - name: "admin"
+      permissions: ["read", "write", "execute", "manage_users"]
+    - name: "developer"
+      permissions: ["read", "write", "execute"]
+    - name: "user"
+      permissions: ["read", "execute"]
+    - name: "guest"
+      permissions: ["read"]
+
+# Contrôle des accès
+access_control:
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 60
+    burst: 20
+  ip_filtering:
+    enabled: false
+    whitelist: []
+    blacklist: []
+
+# Politiques TLS/SSL
+tls:
+  enabled: true
+  min_version: "TLSv1.2"
+  preferred_ciphers: 
+    - "TLS_AES_128_GCM_SHA256"
+    - "TLS_AES_256_GCM_SHA384"
+    - "TLS_CHACHA20_POLY1305_SHA256"
+
+# Protection contre les attaques
+protection:
+  xss:
+    enabled: true
+    policy: "strict-src 'self'"
+  csrf:
+    enabled: true
+    token_expiration: 3600  # secondes
+  sql_injection:
+    enabled: true
+    sanitize_inputs: true
+  dos:
+    enabled: true
+    connection_limit: 100
+    connection_rate: 30
+
+# Audit et Logging
+audit:
+  enabled: true
+  log_logins: true
+  log_actions: true
+  log_retention_days: 90
+  sensitive_fields:
+    - "password"
+    - "api_key"
+    - "token"
+    - "credit_card"
+
+# Alertes de sécurité
+alerts:
+  enabled: true
+  channels:
+    - type: "email"
+      target: "admin@example.com"
+    - type: "slack"
+      webhook: "${SLACK_WEBHOOK_URL}"
+  triggers:
+    - event: "failed_login"
+      threshold: 5
+      window: 300  # secondes
+    - event: "api_abuse"
+      threshold: 100
+      window: 60  # secondes

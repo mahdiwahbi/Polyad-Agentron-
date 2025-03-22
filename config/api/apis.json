@@ -1,0 +1,108 @@
+{
+  "version": "2.0.0",
+  "apis": {
+    "huggingface": {
+      "description": "Accès à des milliers de modèles ML",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://api-inference.huggingface.co/models/",
+      "rate_limit": 100,
+      "cache_ttl": 3600
+    },
+    "wikipedia": {
+      "description": "Recherche d'informations vérifiées",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://en.wikipedia.org/w/api.php",
+      "rate_limit": 200,
+      "cache_ttl": 7200
+    },
+    "openmeteo": {
+      "description": "Données météorologiques",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://api.open-meteo.com/v1/",
+      "rate_limit": 10000,
+      "cache_ttl": 1800
+    },
+    "newsapi": {
+      "description": "Actualités en temps réel",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://newsapi.org/v2/",
+      "rate_limit": 100,
+      "cache_ttl": 1800
+    },
+    "translation": {
+      "description": "Support multilingue",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://libretranslate.com/",
+      "rate_limit": 100,
+      "cache_ttl": 3600
+    },
+    "ocr": {
+      "description": "Reconnaissance de texte dans les images",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://api.ocr.space/parse/image",
+      "rate_limit": 100,
+      "cache_ttl": 7200
+    },
+    "textanalysis": {
+      "description": "Analyse sémantique avancée",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://api.meaningcloud.com/",
+      "rate_limit": 100,
+      "cache_ttl": 3600
+    },
+    "meilisearch": {
+      "description": "Recherche vectorielle",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "http://localhost:7700",
+      "rate_limit": 1000,
+      "cache_ttl": 3600
+    },
+    "slack": {
+      "description": "Intégration de messagerie",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://slack.com/api/",
+      "rate_limit": 100,
+      "cache_ttl": 300
+    },
+    "github": {
+      "description": "Gestion de code",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://api.github.com/",
+      "rate_limit": 5000,
+      "cache_ttl": 3600
+    },
+    "calendar": {
+      "description": "Planification",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://www.googleapis.com/calendar/v3/",
+      "rate_limit": 1000,
+      "cache_ttl": 1800
+    },
+    "notion": {
+      "description": "Base de connaissances structurée",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://api.notion.com/v1/",
+      "rate_limit": 500,
+      "cache_ttl": 3600
+    }
+  },
+  "global_settings": {
+    "use_cache": true,
+    "default_ttl": 3600,
+    "load_balancing": true,
+    "retry_attempts": 3,
+    "timeout": 30
+  }
+}

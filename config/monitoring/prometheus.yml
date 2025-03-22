@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Configuration des règles d'alerte
+rule_files:
+  - "alert_rules.yml"
+
+# Configuration des cibles Prometheus
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  
+  - job_name: 'polyad'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['polyad:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '.*'
+        replacement: 'polyad'
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+
+# Configuration des alertmanagers
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - 'alertmanager:9093'

@@ -1,0 +1,263 @@
+# Configuration générale
+polyad:
+  debug: true
+  log_level: "DEBUG"
+  environment: "development"
+  model:
+    name: "gemma3"
+    size: "12B"
+    quantization: "it-q4_K_M"
+    device: "auto"
+    max_tokens: 300
+    temperature: 0.7
+
+# Configuration système
+system:
+  memory_optimization:
+    cache_size: 10000
+    cache_ttl: 3600
+    cleanup_interval: 300
+  hardware:
+    cpu_cores: 6
+    ram: 16
+    gpu:
+      type: "AMD"
+      memory: 4
+      temperature_threshold: 80
+  performance:
+    max_threads: 6
+    min_free_ram: 1024
+    swap_disabled: true
+
+# Configuration du cache
+cache:
+  size: 1024 * 1024 * 1024  # 1GB
+  ttl: 3600                  # 1 heure
+  cleanup_interval: 300      # 5 minutes
+  redis:
+    host: "localhost"
+    port: 6379
+    db: 0
+  sqlite:
+    enabled: true
+    path: "cache.db"
+
+# Configuration multimodale
+multimodal:
+  vision:
+    enabled: true
+    max_image_size: 1024
+    analysis_depth: "high"
+  audio:
+    enabled: true
+    max_recording_length: 300
+    recognition_engine: "whisper"
+  text:
+    max_length: 2000
+    context_window: 300
+
+# Configuration API
+api:
+  host: "0.0.0.0"
+  port: 5000
+  debug: true
+  reload: true
+  workers: 1
+  keys:
+    weather: "your_weather_api_key"
+    news: "your_news_api_key"
+    stock: "your_stock_api_key"
+    translate: "your_translate_api_key"
+  base_urls:
+    weather: "https://api.weatherapi.com/v1"
+    news: "https://newsapi.org/v2"
+    stock: "https://api.iex.cloud/v1"
+    translate: "https://api.translation.com/v1"
+
+# Search Configuration
+search:
+  engines:
+    default:
+      base_url: "https://api.duckduckgo.com"
+      results_limit: 10
+      headers:
+        User-Agent: "Polyad/1.0"
+    image:
+      base_url: "https://api.unsplash.com"
+      results_limit: 5
+      headers:
+        Authorization: "Bearer your_unsplash_key"
+    news:
+      base_url: "https://newsapi.org/v2"
+      results_limit: 5
+      headers:
+        x-api-key: "your_news_api_key"
+    video:
+      base_url: "https://youtube.googleapis.com"
+      results_limit: 5
+      headers:
+        x-api-key: "your_youtube_api_key"
+    code:
+      base_url: "https://api.github.com"
+      results_limit: 5
+      headers:
+        Authorization: "Bearer your_github_token"
+
+# Security Configuration
+security:
+  encryption_key: "your_generated_encryption_key"
+  session_timeout: 3600
+  password_salt_rounds: 10
+  rate_limit:
+    max_requests: 100
+    time_window: 60
+  api_keys:
+    openai: null
+    stripe: null
+    canva: null
+    heroku: null
+    slack: null
+    google_drive: null
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  metrics:
+    cpu: true
+    memory: true
+    network: true
+    disk: true
+    temperature: true
+  interval: 60
+  retention: 7
+  alert_thresholds:
+    cpu: 80
+    memory: 90
+    disk: 95
+    temperature: 80
+
+# Logging Configuration
+logging:
+  level: "DEBUG"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file:
+    enabled: true
+    path: "logs/polyad.log"
+    max_size: 10485760  # 10MB
+    backup_count: 5
+  console:
+    enabled: true
+    color: true
+
+# Database Configuration
+database:
+  type: "sqlite"
+  path: "polyad.db"
+  pool_size: 5
+  max_overflow: 10
+  timeout: 30
+
+# External Services Configuration
+services:
+  storage:
+    provider: "local"
+    path: "uploads"
+    max_size: 10485760  # 10MB
+  email:
+    provider: "smtp"
+    host: "smtp.gmail.com"
+    port: 587
+    use_tls: true
+    username: null
+    password: null
+  messaging:
+    provider: "twilio"
+    account_sid: null
+    auth_token: null
+    from_number: null
+
+# Feature Flags
+features:
+  experimental:
+    enabled: false
+    features:
+      - "advanced_nlp"
+      - "real_time_analytics"
+      - "distributed_processing"
+  beta:
+    enabled: true
+    features:
+      - "api_integration"
+      - "search_enhancements"
+      - "security_improvements"
+
+# Configuration de production
+production:
+  # Sécurité
+  security:
+    jwt_secret: "your-secure-secret-key-here"
+    password_salt_rounds: 12
+    session_timeout: 3600
+    password_requirements:
+      min_length: 12
+      require_uppercase: true
+      require_lowercase: true
+      require_numbers: true
+      require_special_chars: true
+
+  # Monitoring
+  monitoring:
+    enabled: true
+    metrics_port: 8000
+    alert_thresholds:
+      cpu: 80
+      memory: 90
+      disk: 90
+      response_time: 2.0
+
+  # Backup
+  backup:
+    enabled: true
+    directory: "/var/backups/polyad"
+    interval: 24  # heures
+    retention: 7  # jours
+    s3:
+      enabled: true
+      bucket: "polyad-backups"
+      region: "eu-west-1"
+
+  # Logging
+  logging:
+    level: "INFO"
+    directory: "/var/log/polyad"
+    format: "json"
+    retention_days: 30
+
+  # Performance
+  performance:
+    max_workers: 10
+    queue_size: 100
+    batch_size: 5
+    cache_size_gb: 16
+
+  # Ressources
+  resources:
+    cpu_threshold: 80
+    memory_threshold: 0.8
+    disk_threshold: 0.9
+
+  # API
+  api:
+    rate_limit:
+      enabled: true
+      requests_per_minute: 60
+      burst_limit: 10
+    timeout_seconds: 30
+    max_content_length: 10485760  # 10MB
+
+  # Cache
+  cache:
+    provider: "redis"
+    ttl: 3600
+    max_size_gb: 16
+    cleanup_interval: 3600

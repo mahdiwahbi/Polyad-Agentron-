@@ -1,0 +1,93 @@
+.qodo
+
+# Environnement virtuel
+.venv/
+env/
+venv/
+
+# Fichiers de configuration personnels
+.env
+
+# Logs
+logs/
+*.log
+
+# Fichiers de cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Fichiers de build
+build/
+dist/
+*.egg-info/
+
+# Fichiers système
+.DS_Store
+
+# Fichiers temporaires
+*.tmp
+*.temp
+
+# Fichiers de test
+coverage/
+htmlcov/
+.nox/
+.tox/
+.coverage
+.coverage.*
+.coverage.xml
+
+# Fichiers de documentation
+_docs/
+
+# Fichiers de développement
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Fichiers de monitoring
+prometheus/
+grafana/
+
+# Fichiers de modèle
+models/
+*.bin
+*.model
+
+# Fichiers de cache Redis
+redis/
+
+# Fichiers de configuration système
+system/
+
+# Fichiers de test
+*.test
+*.tests
+
+# Fichiers de build Python
+*.pyd
+*.pyo
+*.pyc
+*.so
+*.dylib
+*.dll
+
+# Fichiers de configuration locale
+config.local.py
+
+# Fichiers de backup
+*.bak
+*.backup
+*.old
+*.orig
+*.rej
+*.swp
+*.swo
+
+# Fichiers de configuration IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project

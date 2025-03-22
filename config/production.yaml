@@ -1,0 +1,38 @@
+api:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  workers: 4
+  timeout: 60
+
+database:
+  type: "postgres"
+  host: "postgres"
+  port: 5432
+  name: "polyad"
+  user: "polyad"
+  password: "your-secure-password"
+
+cache:
+  type: "redis"
+  host: "redis"
+  port: 6379
+  db: 0
+
+monitoring:
+  enabled: true
+  prometheus_port: 8001
+  grafana:
+    host: "grafana"
+    port: 3000
+    api_key: ""
+
+security:
+  jwt_secret: "your-secure-secret"
+  rate_limit: 60
+  session_timeout: 3600
+
+model:
+  name: "gemma3"
+  quantization: "12b-it-q4_K_M"
+  host: "http://host.docker.internal:11434"

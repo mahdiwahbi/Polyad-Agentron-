@@ -1,0 +1,56 @@
+groups:
+  - name: polyad_alerts
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 2000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Polyad is using more than 2GB of memory for over 5 minutes."
+
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "Polyad is using more than 80% CPU for over 5 minutes."
+
+      - alert: ApiHighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate"
+          description: "More than 5% of requests are resulting in 5xx errors."
+
+      - alert: SlowResponseTime
+        expr: http_request_duration_seconds{quantile="0.95"} > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow API response time"
+          description: "95th percentile of API response time is over 1 second for the last 5 minutes."
+
+      - alert: CacheEfficiencyLow
+        expr: (sum(rate(cache_misses_total[5m])) / (sum(rate(cache_hits_total[5m])) + sum(rate(cache_misses_total[5m])))) * 100 > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low cache efficiency"
+          description: "Cache hit ratio is below 50% for the last 10 minutes."
+
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance down"
+          description: "Polyad instance has been down for more than 1 minute."
