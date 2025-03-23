@@ -277,7 +277,3 @@ $ pytest tests/test_agent.py
 2. Créez une branche pour votre fonctionnalité
 3. Commitez vos changements
 4. Créez une Pull Request
-
-## Licence
-
-MIT License - voir le fichier LICENSE pour plus de détails
