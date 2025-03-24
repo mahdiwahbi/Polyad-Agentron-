@@ -13,11 +13,17 @@ def run_command(command, cwd=None):
     """Exécute une commande shell et affiche le résultat"""
     print(f"Exécution: {command}")
     try:
+        # Utiliser shell=False pour plus de sécurité et passer des arguments en tant que liste
+        if isinstance(command, str):
+            args = command.split()
+        else:
+            args = command
+        
         result = subprocess.run(
-            command, 
-            shell=True, 
-            check=True, 
-            text=True, 
+            args,
+            shell=False,
+            check=True,
+            text=True,
             capture_output=True,
             cwd=cwd
         )
@@ -67,13 +73,17 @@ def check_github_cli():
     """Vérifie si GitHub CLI est installé et authentifié"""
     try:
         result = subprocess.run(
-            "gh auth status", 
-            shell=True, 
+            ["gh", "auth", "status"], 
+            shell=False, 
             text=True, 
             capture_output=True
         )
         return result.returncode == 0
-    except:
+    except subprocess.SubprocessError as e:
+        print(f"Erreur lors de la vérification de GitHub CLI: {e}")
+        return False
+    except FileNotFoundError:
+        print("GitHub CLI (gh) n'est pas installé ou n'est pas dans le PATH")
         return False
 
 def main():

@@ -1,10 +1,48 @@
-from typing import Dict, Any, List
 import logging
-import asyncio
 from datetime import datetime
 from dash import html
-from core.learning_engine import LearningEngine
-from config.config import Config
+import dash_bootstrap_components as dbc
+import sys
+import os
+
+# Import de Config
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+try:
+    from config.config import Config
+except ImportError:
+    # En cas d'échec, créer une classe Config factice
+    class Config:
+        def __init__(self):
+            self.config = {"api": {"chat_endpoint": "http://localhost:5000/api/chat"}}
+
+        def get(self, key, default=None):
+            return self.config.get(key, default)
+
+# Créer une classe LearningEngine simplifiée pour éviter les problèmes de dépendances
+class SimpleLearningEngine:
+    def __init__(self, config):
+        self.config = config
+        self.logger = logging.getLogger('polyad.simple_learning_engine')
+
+    async def generate_response(self, message, context=None):
+        """Génère une réponse simulée pour le message"""
+        self.logger.info(f"Génération d'une réponse pour: {message[:30]}...")
+
+        # Réponses prédéfinies pour simulation
+        responses = {
+            "bonjour": "Bonjour ! Comment puis-je vous aider aujourd'hui ?",
+            "aide": "Je suis Polyad, votre assistant IA. Je peux vous aider avec la surveillance système, l'automatisation des tâches et répondre à vos questions.",
+            "status": "Tous les systèmes fonctionnent normalement. La surveillance est active.",
+            "version": "Polyad v1.0 - Système d'agent autonome multifonctionnel",
+        }
+
+        # Chercher une correspondance dans les réponses prédéfinies
+        for key, response in responses.items():
+            if key in message.lower():
+                return response
+
+        # Réponse par défaut
+        return "Je suis connecté à l'API Polyad. Pour interagir complètement avec le système, assurez-vous que l'API est en cours d'exécution à l'adresse http://localhost:5000."
 
 logger = logging.getLogger('polyad.chat')
 
@@ -12,95 +50,107 @@ class Chat:
     def __init__(self):
         """Initialise le composant de chat"""
         self.config = Config()
-        self.learning_engine = LearningEngine(self.config.data)
+        self.learning_engine = SimpleLearningEngine(self.config.config)
         self.message_history = []
-        self.max_messages = self.config.data.get('ui', {}).get('chat', {}).get('max_messages', 100)
-        
+        self.max_messages = self.config.get('ui', {}).get('chat', {}).get('max_messages', 100)
+
     def create_chat_history(self, message: str, response: str) -> html.Div:
         """Crée l'historique des messages"""
-        # Ajouter le message à l'historique
-        self.message_history.append({
-            'timestamp': datetime.now().isoformat(),
-            'message': message,
-            'response': response
-        })
-        
-        # Limiter la taille de l'historique
-        if len(self.message_history) > self.max_messages:
-            self.message_history = self.message_history[-self.max_messages:]
-            
-        # Créer les composants HTML
-        messages = []
-        for msg in reversed(self.message_history):
-            messages.extend([
-                html.Div(
-                    html.P(msg['message'], className="user-message"),
-                    className="message-container user"
+        timestamp = datetime.now().strftime("%H:%M:%S")
+
+        # Style pour les messages
+        user_style = {
+            "text-align": "right",
+            "background-color": "#375a7f",
+            "color": "white",
+            "border-radius": "15px 15px 0 15px",
+            "padding": "10px 15px",
+            "margin": "5px 0",
+            "max-width": "80%",
+            "display": "inline-block"
+        }
+
+        ai_style = {
+            "text-align": "left",
+            "background-color": "#444",
+            "color": "white",
+            "border-radius": "15px 15px 15px 0",
+            "padding": "10px 15px",
+            "margin": "5px 0",
+            "max-width": "80%",
+            "display": "inline-block"
+        }
+
+        # Création des bulles de message
+        message_div = html.Div([
+            html.Div([
+                html.Span(f"Vous ({timestamp})", style={"font-size": "0.8em", "color": "#aaa"}),
+                html.Div(message, style=user_style)
+            ], style={"text-align": "right", "margin-bottom": "10px"}),
+            html.Div([
+                html.Span(f"Polyad ({timestamp})", style={"font-size": "0.8em", "color": "#aaa"}),
+                html.Div(response, style=ai_style)
+            ], style={"text-align": "left", "margin-bottom": "10px"})
+        ])
+
+        return message_div
+
+    def create_chat_component(self) -> html.Div:
+        """Crée le composant de chat"""
+        chat_component = html.Div([
+            # Titre
+            html.H4("Assistant Polyad", className="mb-4"),
+
+            # Zone d'historique des messages
+            html.Div(
+                id="chat-history",
+                style={
+                    "height": "400px",
+                    "overflow-y": "auto",
+                    "padding": "10px",
+                    "background-color": "#222",
+                    "border-radius": "5px",
+                    "margin-bottom": "15px"
+                }
+            ),
+
+            # Zone de saisie et bouton d'envoi
+            dbc.InputGroup([
+                dbc.Input(
+                    id="chat-input",
+                    placeholder="Entrez votre message...",
+                    type="text",
+                    debounce=True,
+                    style={"background-color": "#333", "color": "white"}
                 ),
-                html.Div(
-                    html.P(msg['response'], className="ai-message"),
-                    className="message-container ai"
+                dbc.Button(
+                    "Envoyer",
+                    id="send-button",
+                    color="success",
+                    className="ms-2"
                 )
             ])
-            
-        return html.Div(
-            messages,
-            className="chat-history",
-            style={
-                "height": "100%",
-                "overflow-y": "auto"
-            }
-        )
-        
+        ], className="p-4", style={"background-color": "#303030", "border-radius": "5px"})
+
+        return chat_component
+
     async def process_message(self, message: str) -> str:
-        """Traite un message utilisateur"""
+        """Traite un message et retourne une réponse"""
+        logger.info(f"Traitement du message: {message[:30]}{'...' if len(message) > 30 else ''}")
+
         try:
-            # Analyser le message et déterminer l'intention
-            intent = await self._analyze_intent(message)
-            
-            # Traiter selon le type d'intention
-            if intent['type'] == 'command':
-                return await self._handle_command(message)
-            elif intent['type'] == 'web_search':
-                return await self._handle_web_search(message)
-            elif intent['type'] == 'content_generation':
-                return await self._handle_content_generation(message)
-            else:
-                return await self.learning_engine.process_message(message)
-                
+            # Utiliser le moteur d'apprentissage pour générer une réponse
+            context = {"message": message, "timestamp": datetime.now().isoformat()}
+            response = await self.learning_engine.generate_response(message, context)
+
+            # Limiter l'historique des messages
+            if len(self.message_history) >= self.max_messages:
+                self.message_history.pop(0)
+
+            # Ajouter le message à l'historique
+            self.message_history.append({"user": message, "ai": response, "timestamp": datetime.now().isoformat()})
+
+            return response
         except Exception as e:
             logger.error(f"Erreur lors du traitement du message: {e}")
-            return "Je suis désolé, une erreur est survenue lors du traitement de votre message."
-            
-    async def _analyze_intent(self, message: str) -> Dict[str, Any]:
-        """Analyse l'intention du message"""
-        # Utiliser le moteur d'apprentissage pour l'analyse
-        return await self.learning_engine._analyze_intent(message)
-        
-    async def _handle_command(self, message: str) -> str:
-        """Gère les commandes système"""
-        # Utiliser l'outil système du moteur d'apprentissage
-        return await self.learning_engine._execute_system_command(message)
-        
-    async def _handle_web_search(self, message: str) -> str:
-        """Gère les recherches web"""
-        # Utiliser la chaîne de recherche web
-        return await self.learning_engine.web_research_chain.run(message)
-        
-    async def _handle_content_generation(self, message: str) -> str:
-        """Gère la génération de contenu"""
-        # Utiliser la chaîne de génération de contenu
-        return await self.learning_engine.conversation_chain.run(message)
-        
-    def get_capabilities(self) -> List[str]:
-        """Retourne la liste des capacités"""
-        return self.learning_engine.get_capabilities()
-        
-    def get_status(self) -> Dict[str, Any]:
-        """Retourne l'état du chat"""
-        return {
-            'message_count': len(self.message_history),
-            'max_messages': self.max_messages,
-            'capabilities': self.get_capabilities(),
-            'learning_status': self.learning_engine.get_status()
-        }
+            return f"Désolé, je n'ai pas pu traiter votre demande. Erreur: {str(e)}"

@@ -33,6 +33,38 @@
       "rate_limit": 100,
       "cache_ttl": 1800
     },
+    "duckduckgo": {
+      "description": "Recherche web privée et gratuite",
+      "enabled": true,
+      "api_key": "",
+      "base_url": "https://api.duckduckgo.com/",
+      "rate_limit": 1000,
+      "cache_ttl": 3600
+    },
+    "google_search": {
+      "description": "Recherche web Google (requiert API key)",
+      "enabled": false,
+      "api_key": "",
+      "base_url": "https://www.googleapis.com/customsearch/v1",
+      "rate_limit": 100,
+      "cache_ttl": 3600
+    },
+    "bing_search": {
+      "description": "Recherche web Bing (requiert API key)",
+      "enabled": false,
+      "api_key": "",
+      "base_url": "https://api.bing.microsoft.com/v7.0/search",
+      "rate_limit": 100,
+      "cache_ttl": 3600
+    },
+    "serpapi": {
+      "description": "Recherche web avancée (requiert API key)",
+      "enabled": false,
+      "api_key": "",
+      "base_url": "https://serpapi.com/search",
+      "rate_limit": 100,
+      "cache_ttl": 3600
+    },
     "translation": {
       "description": "Support multilingue",
       "enabled": true,

@@ -14,17 +14,17 @@ import threading
 import socket
 import platform
 from datetime import datetime
+import logging
+from polyad import Polyad
+from dashboard.dashboard_manager import DashboardManager
+import streamlit as st
 
 # Path pour les imports relatifs
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Vérifier si les modules nécessaires sont disponibles
 try:
-    from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                               QPushButton, QLabel, QTextEdit, QTabWidget, QProgressBar,
-                               QMessageBox, QSystemTrayIcon, QMenu, QSplashScreen, QDialog,
-                               QFrame, QGridLayout, QToolButton, QSizePolicy, QSpacerItem,
-                               QListWidget, QListWidgetItem, QStyle, QStyleFactory)
+    from PyQt6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QTextEdit, QTabWidget, QProgressBar, QMessageBox, QSystemTrayIcon, QMenu, QSplashScreen, QDialog, QFrame, QGridLayout, QToolButton, QSizePolicy, QSpacerItem, QListWidget, QListWidgetItem, QStyle, QStyleFactory
     from PyQt6.QtGui import QIcon, QPixmap, QAction, QFont, QColor, QPalette, QCursor, QLinearGradient
     from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QUrl, QSize, QPropertyAnimation, QEasingCurve
     from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -47,7 +47,7 @@ except ImportError:
 # Définir les chemins
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 DOCKER_COMPOSE_PATH = os.path.join(APP_DIR, "docker-compose.yml")
-ENV_FILE_PATH = os.path.join(APP_DIR, ".env.production")
+ENV_FILE_PATH = os.path.join(APP_DIR, ".env")
 
 # Ports des services
 SERVICE_PORTS = {
@@ -55,6 +55,30 @@ SERVICE_PORTS = {
     "Dashboard": 8001,
     "Prometheus": 9090,
     "Grafana": 3000
+}
+
+# Configuration des services
+SERVICE_CONFIG = {
+    "backend": {
+        "name": "polyad-backend",
+        "port": SERVICE_PORTS["API"],
+        "url": f"http://localhost:{SERVICE_PORTS["API"]}"
+    },
+    "dashboard": {
+        "name": "polyad-dashboard",
+        "port": SERVICE_PORTS["Dashboard"],
+        "url": f"http://localhost:{SERVICE_PORTS["Dashboard"]}"
+    },
+    "prometheus": {
+        "name": "prometheus",
+        "port": SERVICE_PORTS["Prometheus"],
+        "url": f"http://localhost:{SERVICE_PORTS["Prometheus"]}"
+    },
+    "grafana": {
+        "name": "grafana",
+        "port": SERVICE_PORTS["Grafana"],
+        "url": f"http://localhost:{SERVICE_PORTS["Grafana"]}"
+    }
 }
 
 class ServiceThread(QThread):
@@ -69,9 +93,12 @@ class ServiceThread(QThread):
         self.env = env or os.environ.copy()
         self.process = None
         self.running = False
+        self._stop_requested = False
         
     def run(self):
+        """Exécuter le thread"""
         self.running = True
+        self._stop_requested = False
         self.update_signal.emit(f"Démarrage du service: {' '.join(self.command)}")
         
         try:
@@ -82,12 +109,13 @@ class ServiceThread(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
+                bufsize=1,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
             )
             
             self.status_signal.emit(True)
             
-            while self.running and self.process.poll() is None:
+            while self.running and not self._stop_requested and self.process.poll() is None:
                 line = self.process.stdout.readline()
                 if line:
                     self.update_signal.emit(line.rstrip())
@@ -102,7 +130,8 @@ class ServiceThread(QThread):
             self.running = False
     
     def stop(self):
-        self.running = False
+        """Arrêter le thread"""
+        self._stop_requested = True
         if self.process and self.process.poll() is None:
             try:
                 # Tenter un arrêt gracieux d'abord
@@ -124,160 +153,144 @@ class ServiceThread(QThread):
             except Exception as e:
                 print(f"Erreur lors de l'arrêt du processus: {e}")
 
-
-class DockerServiceManager:
-    """Gestionnaire des services Docker pour Polyad"""
+class ServiceManager:
+    """Gestionnaire centralisé des services Polyad"""
     def __init__(self):
-        self.compose_file = DOCKER_COMPOSE_PATH
-        self.env_file = ENV_FILE_PATH
+        self.services = {}
+        self.logger = logging.getLogger('polyad.service_manager')
+        self._stop_requested = False
         
-    def is_docker_running(self):
-        """Vérifie si Docker est en cours d'exécution"""
-        try:
-            result = subprocess.run(["docker", "info"], 
-                                   stdout=subprocess.PIPE, 
-                                   stderr=subprocess.PIPE, 
-                                   check=False)
-            return result.returncode == 0
-        except Exception:
-            return False
-    
-    def is_ollama_running(self):
-        """Vérifie si Ollama est en cours d'exécution"""
-        try:
-            import requests
-            response = requests.get("http://localhost:11434/api/version", timeout=2)
-            return response.status_code == 200
-        except Exception:
+    def start_service(self, service_name):
+        """Démarrer un service spécifique"""
+        if service_name not in SERVICE_CONFIG:
+            self.logger.error(f"Service {service_name} non configuré")
             return False
             
-    def start_services(self):
-        """Démarrer les services Docker"""
-        cmd = ["docker-compose", "-f", self.compose_file]
-        if os.path.exists(self.env_file):
-            cmd.extend(["--env-file", self.env_file])
-        cmd.extend(["up", "-d"])
-        return cmd
-    
-    def stop_services(self):
-        """Arrêter les services Docker"""
-        cmd = ["docker-compose", "-f", self.compose_file, "down"]
-        return cmd
-    
-    def check_service_status(self):
-        """Vérifier le statut des services Docker"""
-        cmd = ["docker-compose", "-f", self.compose_file, "ps"]
-        return cmd
+        config = SERVICE_CONFIG[service_name]
+        cmd = ["docker-compose", "up", "-d", config["name"]]
         
-    def get_service_logs(self, service_name):
-        """Obtenir les logs d'un service spécifique"""
-        cmd = ["docker-compose", "-f", self.compose_file, "logs", "--tail=100", service_name]
-        return cmd
-
+        try:
+            subprocess.run(cmd, check=True, cwd=APP_DIR)
+            self.logger.info(f"Service {service_name} démarré avec succès")
+            return True
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Erreur lors du démarrage de {service_name}: {e}")
+            return False
+            
+    def stop_service(self, service_name):
+        """Arrêter un service spécifique"""
+        if service_name not in SERVICE_CONFIG:
+            self.logger.error(f"Service {service_name} non configuré")
+            return False
+            
+        config = SERVICE_CONFIG[service_name]
+        cmd = ["docker-compose", "stop", config["name"]]
+        
+        try:
+            subprocess.run(cmd, check=True, cwd=APP_DIR)
+            self.logger.info(f"Service {service_name} arrêté avec succès")
+            return True
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Erreur lors de l'arrêt de {service_name}: {e}")
+            return False
+            
+    def start_all(self):
+        """Démarrer tous les services"""
+        success = True
+        for service in SERVICE_CONFIG:
+            if not self.start_service(service):
+                success = False
+        return success
+        
+    def stop_all(self):
+        """Arrêter tous les services"""
+        success = True
+        for service in SERVICE_CONFIG:
+            if not self.stop_service(service):
+                success = False
+        return success
+        
+    def check_status(self, service_name):
+        """Vérifier le statut d'un service"""
+        if service_name not in SERVICE_CONFIG:
+            return False
+            
+        config = SERVICE_CONFIG[service_name]
+        try:
+            result = subprocess.run(
+                ["docker", "ps", "--filter", f"name={config['name']}", "--format", "{{.Status}}"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return "Up" in result.stdout
+        except subprocess.CalledProcessError:
+            return False
 
 class ServiceStatusWidget(QFrame):
     """Widget qui affiche le statut d'un service"""
-    def __init__(self, name, port, parent=None):
+    def __init__(self, service_name, parent=None):
         super().__init__(parent)
-        self.name = name
-        self.port = port
-        self.url = f"http://localhost:{port}"
-        
+        self.service_name = service_name
+        self.config = SERVICE_CONFIG[service_name]
         self.initUI()
-        
-        # Vérifier périodiquement le statut
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.check_status)
-        self.timer.start(5000)  # Vérifier toutes les 5 secondes
-        
-        # Vérifier immédiatement
-        QTimer.singleShot(500, self.check_status)
+        self.check_status_timer = QTimer()
+        self.check_status_timer.timeout.connect(self.check_status)
+        self.check_status_timer.start(5000)  # Vérifier toutes les 5 secondes
+        self.check_status()
         
     def initUI(self):
+        """Initialiser l'interface utilisateur"""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
         
-        # En-tête avec nom et indicateur
-        header_layout = QHBoxLayout()
+        # Titre du service
+        title = QLabel(self.config["name"])
+        title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        layout.addWidget(title)
         
-        name_label = QLabel(f"{self.name}")
-        name_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
-        name_label.setStyleSheet("color: white;")
+        # Statut
+        self.status_label = QLabel("Arrêté")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_label)
         
-        self.status_label = QLabel("●")
-        self.status_label.setStyleSheet("color: gray; font-size: 16px;")
-        self.status_label.setToolTip("Statut de connexion")
-        
-        header_layout.addWidget(name_label, 1)
-        header_layout.addWidget(self.status_label)
-        layout.addLayout(header_layout)
-        
-        # Port info
-        info_layout = QHBoxLayout()
-        port_label = QLabel(f"Port: {self.port}")
-        port_label.setStyleSheet("color: #b0b0b0; font-size: 10pt;")
-        info_layout.addWidget(port_label)
-        info_layout.addStretch(1)
-        layout.addLayout(info_layout)
-        
-        # Bouton d'ouverture
-        self.open_button = QPushButton("Ouvrir dans le navigateur")
-        self.open_button.setIcon(QIcon.fromTheme("web-browser"))
-        self.open_button.setStyleSheet(
-            "QPushButton { background-color: #42a5f5; color: white; border: none; padding: 5px; border-radius: 4px; } " 
-            "QPushButton:hover { background-color: #64b5f6; } " 
-            "QPushButton:disabled { background-color: #555555; color: #aaaaaa; }"
-        )
-        self.open_button.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        # Bouton pour ouvrir le service
+        self.open_button = QPushButton("Ouvrir")
         self.open_button.clicked.connect(self.open_service)
         self.open_button.setEnabled(False)
         layout.addWidget(self.open_button)
         
+        self.setLayout(layout)
+        
     def check_status(self):
-        """Vérifier si le service répond sur son port"""
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.5)
-        try:
-            s.connect(("localhost", self.port))
-            s.close()
-            self.set_status(True)
-        except (socket.error, socket.timeout):
-            self.set_status(False)
+        """Vérifier le statut du service"""
+        is_running = self.parent().service_manager.check_status(self.service_name)
+        self.set_status(is_running)
         
     def set_status(self, is_running):
+        """Mettre à jour le statut du service"""
         if is_running:
-            self.status_label.setStyleSheet("color: #4caf50; font-size: 16px;")
-            self.status_label.setToolTip(f"{self.name} est en cours d'exécution")
+            self.status_label.setText("En cours d'exécution")
+            self.status_label.setStyleSheet("color: green;")
             self.open_button.setEnabled(True)
-            self.setStyleSheet("background-color: #333333; border-radius: 4px; border-left: 3px solid #4caf50;")
         else:
-            self.status_label.setStyleSheet("color: #f44336; font-size: 16px;")
-            self.status_label.setToolTip(f"{self.name} n'est pas en cours d'exécution")
+            self.status_label.setText("Arrêté")
+            self.status_label.setStyleSheet("color: red;")
             self.open_button.setEnabled(False)
-            self.setStyleSheet("background-color: #333333; border-radius: 4px; border-left: 3px solid #f44336;")
-    
+            
     def open_service(self):
         """Ouvrir le service dans le navigateur"""
-        # Animation de clic
-        original_style = self.open_button.styleSheet()
-        self.open_button.setStyleSheet(
-            "QPushButton { background-color: #1976d2; color: white; border: none; padding: 5px; border-radius: 4px; }"
-        )
-        QTimer.singleShot(100, lambda: self.open_button.setStyleSheet(original_style))
-        
-        # Ouvrir le navigateur
-        webbrowser.open(self.url)
-
+        if self.config["url"]:
+            webbrowser.open(self.config["url"])
 
 class PolyadApp(QMainWindow):
     """Application principale Polyad"""
     def __init__(self):
         super().__init__()
         
-        self.docker_manager = DockerServiceManager()
+        self.service_manager = ServiceManager()
         self.service_thread = None
         self.log_thread = None
+        self.status_timer = QTimer()
         
         # Initialiser le gestionnaire d'API
         try:
@@ -302,6 +315,10 @@ class PolyadApp(QMainWindow):
         
         # Créer l'icône de la barre des tâches
         self.setup_tray_icon()
+        
+        # Démarrer le timer de vérification du statut
+        self.status_timer.timeout.connect(self.update_status)
+        self.status_timer.start(5000)  # Vérifier toutes les 5 secondes
         
     def _setup_style(self):
         """Configure le style moderne de l'application"""
@@ -330,8 +347,9 @@ class PolyadApp(QMainWindow):
         
         # Appliquer la palette
         QApplication.setPalette(palette)
-    
+        
     def init_ui(self):
+        """Initialiser l'interface utilisateur"""
         # Widget central
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -465,11 +483,11 @@ class PolyadApp(QMainWindow):
         # Ajouter les services dans une grille
         self.service_widgets = {}
         col, row = 0, 0
-        for i, (name, port) in enumerate(SERVICE_PORTS.items()):
-            service_widget = ServiceStatusWidget(name, port)
+        for service_name in SERVICE_CONFIG:
+            service_widget = ServiceStatusWidget(service_name)
             service_widget.setStyleSheet("background-color: #333333; border-radius: 4px; padding: 5px;")
             services_grid.addWidget(service_widget, row, col)
-            self.service_widgets[name] = service_widget
+            self.service_widgets[service_name] = service_widget
             col += 1
             if col > 1:  # 2 colonnes
                 col = 0
@@ -523,7 +541,7 @@ class PolyadApp(QMainWindow):
         # Barre de statut modernisée
         self.statusBar().setStyleSheet("background-color: #252526; color: #e0e0e0;")
         self.statusBar().showMessage("Prêt")
-    
+        
     def setup_tray_icon(self):
         """Configure l'icône de la barre des tâches"""
         self.tray_icon = QSystemTrayIcon(self)
@@ -565,7 +583,7 @@ class PolyadApp(QMainWindow):
         
         # Gérer le clic sur l'icône
         self.tray_icon.activated.connect(self.tray_icon_activated)
-    
+        
     def tray_icon_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             if self.isVisible():
@@ -574,11 +592,11 @@ class PolyadApp(QMainWindow):
                 self.show()
                 self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
                 self.activateWindow()
-    
+                
     def check_prerequisites(self):
         """Vérifier si Docker et Ollama sont installés et en cours d'exécution"""
         # Vérifier Docker
-        if self.docker_manager.is_docker_running():
+        if self.service_manager.check_status("docker"):
             self.docker_status.setText("Docker: En cours d'exécution")
             self.docker_status.setStyleSheet("color: green;")
             self.start_button.setEnabled(True)
@@ -589,7 +607,7 @@ class PolyadApp(QMainWindow):
             self.log_message("Docker n'est pas en cours d'exécution. Veuillez démarrer Docker.")
         
         # Vérifier Ollama
-        if self.docker_manager.is_ollama_running():
+        if self.service_manager.check_status("ollama"):
             self.ollama_status.setText("Ollama: En cours d'exécution")
             self.ollama_status.setStyleSheet("color: green;")
         else:
@@ -597,11 +615,6 @@ class PolyadApp(QMainWindow):
             self.ollama_status.setStyleSheet("color: red;")
             self.log_message("Ollama n'est pas en cours d'exécution. Veuillez démarrer Ollama.")
             
-        # Planifier une vérification périodique
-        timer = QTimer(self)
-        timer.timeout.connect(self.update_status)
-        timer.start(5000)  # Vérifier toutes les 5 secondes
-    
     def update_status(self):
         """Mettre à jour le statut des services"""
         # Vérifier Docker et Ollama
@@ -610,14 +623,14 @@ class PolyadApp(QMainWindow):
         # Vérifier si des services sont en cours d'exécution
         services_running = any(widget.open_button.isEnabled() for widget in self.service_widgets.values())
         self.stop_button.setEnabled(services_running)
-    
+        
     def start_services(self):
         """Démarrer tous les services Polyad"""
-        if not self.docker_manager.is_docker_running():
+        if not self.service_manager.check_status("docker"):
             QMessageBox.warning(self, "Erreur", "Docker n'est pas en cours d'exécution. Veuillez démarrer Docker.")
             return
             
-        if not self.docker_manager.is_ollama_running():
+        if not self.service_manager.check_status("ollama"):
             reply = QMessageBox.question(self, "Attention", 
                                       "Ollama ne semble pas être en cours d'exécution. Continuer quand même?",
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, 
@@ -625,7 +638,6 @@ class PolyadApp(QMainWindow):
             if reply == QMessageBox.StandardButton.No:
                 return
         
-        # Démarrer les services Docker
         self.log_message("Démarrage des services Polyad...")
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indicateur indéterminé
@@ -633,19 +645,8 @@ class PolyadApp(QMainWindow):
         # Désactiver le bouton
         self.start_button.setEnabled(False)
         
-        # Démarrer le thread de service
-        if self.service_thread and self.service_thread.isRunning():
-            self.service_thread.stop()
-            
-        self.service_thread = ServiceThread(self.docker_manager.start_services())
-        self.service_thread.update_signal.connect(self.log_message)
-        self.service_thread.status_signal.connect(self.service_started)
-        self.service_thread.start()
-    
-    def service_started(self, success):
-        """Callback lorsque les services sont démarrés"""
-        self.progress_bar.setVisible(False)
-        self.start_button.setEnabled(True)
+        # Démarrer les services
+        success = self.service_manager.start_all()
         
         if success:
             self.log_message("Services Polyad démarrés avec succès!")
@@ -656,7 +657,7 @@ class PolyadApp(QMainWindow):
             if self.log_thread and self.log_thread.isRunning():
                 self.log_thread.stop()
                 
-            self.log_thread = ServiceThread(self.docker_manager.check_service_status())
+            self.log_thread = ServiceThread(self.service_manager.check_status)
             self.log_thread.update_signal.connect(self.log_message)
             self.log_thread.start()
             
@@ -665,19 +666,19 @@ class PolyadApp(QMainWindow):
         else:
             self.log_message("Échec du démarrage des services Polyad")
             self.statusBar().showMessage("Erreur lors du démarrage des services")
-    
+            
     def load_dashboards(self):
         """Charger les dashboards dans les onglets du navigateur"""
         # Charger le dashboard principal
-        self.browser.load(QUrl(f"http://localhost:{SERVICE_PORTS['Dashboard']}"))
+        self.browser.load(QUrl(SERVICE_CONFIG["dashboard"]["url"]))
         self.tabs.setCurrentIndex(1)  # Afficher l'onglet Dashboard
         
         # Charger Prometheus
-        self.prometheus_browser.load(QUrl(f"http://localhost:{SERVICE_PORTS['Prometheus']}"))
+        self.prometheus_browser.load(QUrl(SERVICE_CONFIG["prometheus"]["url"]))
         
         # Charger Grafana
-        self.grafana_browser.load(QUrl(f"http://localhost:{SERVICE_PORTS['Grafana']}"))
-    
+        self.grafana_browser.load(QUrl(SERVICE_CONFIG["grafana"]["url"]))
+        
     def stop_services(self):
         """Arrêter tous les services Polyad"""
         reply = QMessageBox.question(self, "Confirmation", 
@@ -694,22 +695,8 @@ class PolyadApp(QMainWindow):
         # Désactiver le bouton
         self.stop_button.setEnabled(False)
         
-        # Arrêter les threads existants
-        if self.service_thread and self.service_thread.isRunning():
-            self.service_thread.stop()
-            
-        if self.log_thread and self.log_thread.isRunning():
-            self.log_thread.stop()
-            
-        # Démarrer le thread d'arrêt
-        self.service_thread = ServiceThread(self.docker_manager.stop_services())
-        self.service_thread.update_signal.connect(self.log_message)
-        self.service_thread.status_signal.connect(self.service_stopped)
-        self.service_thread.start()
-    
-    def service_stopped(self, success):
-        """Callback lorsque les services sont arrêtés"""
-        self.progress_bar.setVisible(False)
+        # Arrêter les services
+        success = self.service_manager.stop_all()
         
         if success:
             self.log_message("Services Polyad arrêtés avec succès!")
@@ -718,9 +705,6 @@ class PolyadApp(QMainWindow):
             self.log_message("Problème lors de l'arrêt des services Polyad")
             self.statusBar().showMessage("Erreur lors de l'arrêt des services")
             
-        # Réactiver le bouton de démarrage
-        self.start_button.setEnabled(True)
-    
     def log_message(self, message):
         """Ajouter un message aux journaux"""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -736,27 +720,24 @@ class PolyadApp(QMainWindow):
                 self, "Confirmation", 
                 "Des services sont en cours d'exécution. Voulez-vous les arrêter avant de quitter?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No | QMessageBox.StandardButton.Cancel,
-                QMessageBox.StandardButton.Yes
+                QMessageBox.StandardButton.Cancel
             )
             
             if reply == QMessageBox.StandardButton.Cancel:
                 event.ignore()
                 return
             elif reply == QMessageBox.StandardButton.Yes:
-                # Arrêter les services
-                cmd = self.docker_manager.stop_services()
-                try:
-                    subprocess.run(cmd, check=True)
-                    self.log_message("Services arrêtés")
-                except subprocess.CalledProcessError as e:
-                    self.log_message(f"Erreur lors de l'arrêt des services: {e}")
-        
+                self.stop_services()
+                
         # Arrêter les threads
         if self.service_thread and self.service_thread.isRunning():
             self.service_thread.stop()
             
         if self.log_thread and self.log_thread.isRunning():
             self.log_thread.stop()
+            
+        # Arrêter le timer
+        self.status_timer.stop()
         
         # Masquer dans la barre des tâches au lieu de fermer
         if QSystemTrayIcon.isSystemTrayAvailable() and not event.spontaneous():
@@ -771,7 +752,7 @@ class PolyadApp(QMainWindow):
         else:
             # Fermer complètement
             self.close_application()
-    
+            
     def show_api_config(self):
         """Afficher le dialogue de configuration des APIs"""
         if hasattr(self, "api_manager") and self.api_manager:
@@ -782,7 +763,7 @@ class PolyadApp(QMainWindow):
                 self.api_manager._initialize_apis()
         else:
             QMessageBox.warning(self, "Erreur", "Gestionnaire d'API non initialisé")
-    
+            
     def show_api_test(self):
         """Afficher le dialogue de test des APIs"""
         if hasattr(self, "api_manager") and self.api_manager:
@@ -793,42 +774,54 @@ class PolyadApp(QMainWindow):
             
     def close_application(self):
         """Fermer complètement l'application"""
-        # Arrêter tous les threads
+        # Arrêter les services si nécessaire
+        services_running = any(widget.open_button.isEnabled() for widget in self.service_widgets.values())
+        if services_running:
+            self.stop_services()
+            
+        # Arrêter les threads
         if self.service_thread and self.service_thread.isRunning():
             self.service_thread.stop()
             
         if self.log_thread and self.log_thread.isRunning():
             self.log_thread.stop()
-        
-        # Arrêter les services si nécessaire
-        services_running = any(widget.open_button.isEnabled() for widget in self.service_widgets.values())
-        if services_running:
-            cmd = self.docker_manager.stop_services()
-            try:
-                subprocess.run(cmd, check=True)
-            except Exception:
-                pass
+            
+        # Arrêter le timer
+        self.status_timer.stop()
         
         # Supprimer l'icône de la barre des tâches
         if self.tray_icon:
             self.tray_icon.hide()
         
-        # Quitter l'application
+        # Fermer l'application
         QApplication.quit()
 
-
 def main():
-    # Créer l'application Qt
-    app = QApplication(sys.argv)
-    app.setApplicationName("Polyad")
+    """Application principale."""
+    # Initialiser l'application
+    app = PolyadApp()
     
-    # Créer et afficher la fenêtre principale
+    # Créer l'interface du dashboard
+    st.title("Polyad Dashboard")
+    
+    # Menu de navigation
+    pages = {
+        "🏠 Accueil": home,
+        "⚙️ Configuration des APIs": api_config,
+        "🌐 Recherche Web": web_search
+    }
+
+    # Sélection de la page
+    page = st.sidebar.selectbox(
+        "Navigation",
+        tuple(pages.keys())
+    )
+
+    # Affichage de la page
+    pages[page].main()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
     window = PolyadApp()
     window.show()
-    
-    # Exécuter l'application
     sys.exit(app.exec())
-
-
-if __name__ == "__main__":
-    main()

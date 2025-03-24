@@ -1,22 +1,21 @@
-from typing import Dict, Any, List, Optional, Tuple
 import asyncio
 import json
 import os
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+from typing import Dict, Any, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
 import speech_recognition as sr
 import pyautogui
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import faiss
 import torch
 import sounddevice as sd
 import soundfile as sf
 import psutil
-import aiohttp
 
 from .polyad import Polyad
 from .knowledge_base import KnowledgeBase
@@ -345,10 +344,13 @@ class AutonomousAgent:
                     # Pour le moment, on utilise Google comme fallback mais idéalement gemma3
                     # pourrait traiter l'audio directement
                     text = self.audio.recognize_google(audio, language="fr-FR")
-                except:
+                except sr.UnknownValueError:
                     # Fallback à Google Speech Recognition
                     logger.info("Fallback à Google Speech Recognition")
                     text = self.audio.recognize_google(audio)
+                except sr.RequestError as e:
+                    logger.error(f"Erreur de reconnaissance vocale: {e}")
+                    text = ""
             
             # Récupérer des exemples pertinents pour le contexte
             similar_examples = self._get_relevant_examples('audio', 2)
@@ -473,18 +475,25 @@ class AutonomousAgent:
                 # Exécution de commande système avec restrictions strictes
                 if self._is_safe_command(action['command']):
                     import subprocess
-                    proc = subprocess.run(
-                        action['command'],
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                        timeout=action.get('timeout', 10)
-                    )
-                    result['returncode'] = proc.returncode
-                    result['output'] = proc.stdout
-                    result['error_output'] = proc.stderr
-                    result['action'] = f"Commande système: {action['command'][:30]}{'...' if len(action['command']) > 30 else ''}"
-                    result['success'] = proc.returncode == 0
+                    try:
+                        proc = subprocess.run(
+                            action['command'].split() if isinstance(action['command'], str) else action['command'],
+                            shell=False,
+                            capture_output=True,
+                            text=True,
+                            timeout=action.get('timeout', 10)
+                        )
+                        result['returncode'] = proc.returncode
+                        result['output'] = proc.stdout
+                        result['error_output'] = proc.stderr
+                        result['action'] = f"Commande système: {action['command'][:30]}{'...' if len(action['command']) > 30 else ''}"
+                        result['success'] = proc.returncode == 0
+                    except subprocess.TimeoutExpired as e:
+                        result['error'] = f"Timeout: la commande a pris plus de {action.get('timeout', 10)} secondes - {str(e)}"
+                        result['success'] = False
+                    except subprocess.SubprocessError as e:
+                        result['error'] = f"Erreur lors de l'exécution de la commande: {str(e)}"
+                        result['success'] = False
                 else:
                     raise ValueError(f"Commande système non autorisée: {action['command']}")
                 

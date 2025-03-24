@@ -1,0 +1,57 @@
+# Configuration générale
+debug: false
+log_level: INFO
+
+# Configuration des services
+services:
+  docker:
+    enabled: true
+    compose_file: docker-compose.yml
+    env_file: .env
+  ollama:
+    enabled: true
+    port: 11434
+    api_url: http://localhost:11434
+
+# Configuration des ports
+ports:
+  api: 8000
+  dashboard: 8001
+  prometheus: 9090
+  grafana: 3000
+
+# Configuration du cache
+cache:
+  enabled: true
+  size: 1073741824  # 1GB
+  ttl: 3600  # 1 heure
+  backend: redis
+
+# Configuration de la base de données
+database:
+  type: sqlite
+  path: polyad.db
+
+# Configuration des API
+api:
+  enabled: true
+  version: v1
+  prefix: /api
+  documentation: true
+
+# Configuration de la sécurité
+security:
+  jwt_secret: your-secret-key
+  password_salt_rounds: 10
+  rate_limit:
+    enabled: true
+    limit: 100
+    window: 60  # 1 minute
+
+# Configuration des logs
+logging:
+  level: INFO
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  file: polyad.log
+  max_size: 10485760  # 10MB
+  backup_count: 5

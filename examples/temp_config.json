@@ -1,7 +1,0 @@
-{
-  "temperature": 0.5,
-  "parallel_iterations": 3,
-  "max_retries": 2,
-  "retry_delay": 0.5,
-  "default_timeout": 20.0
-}

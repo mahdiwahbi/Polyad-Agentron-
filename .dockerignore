@@ -1,0 +1,57 @@
+# Ignorer les fichiers et dossiers suivants
+
+# Fichiers système
+.git
+.gitignore
+.gitattributes
+
+# Fichiers de développement
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+
+# Environnement virtuel
+.venv/
+venv/
+env/
+
+# Fichiers de build
+build/
+dist/
+*.egg-info/
+
+# Fichiers de cache
+.cache/
+*.cache
+
+# Fichiers de test
+.coverage
+htmlcov/
+
+# Fichiers de configuration personnelle
+.env
+.env.local
+.env.*.local
+
+# Fichiers de log
+logs/
+*.log
+
+# Fichiers temporaires
+*~
+.DS_Store
+Thumbs.db
+
+# Fichiers de backup
+*.bak
+*.old
+*.orig
+*.rej
+
+# Fichiers de documentation
+*.rst
+*.md
+README.md
+CHANGELOG.md
+LICENSE

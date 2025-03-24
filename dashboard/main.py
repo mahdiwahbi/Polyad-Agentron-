@@ -4,6 +4,8 @@ import threading
 import time
 import signal
 import sys
+import streamlit as st
+from pages import home, api_config, web_search
 
 def signal_handler(sig, frame):
     """Handle Ctrl+C gracefully"""
@@ -31,5 +33,30 @@ def main():
         print(f"Error running dashboard: {e}")
         sys.exit(1)
 
+def streamlit_main():
+    """Application principale du dashboard."""
+    st.set_page_config(
+        page_title="Polyad Dashboard",
+        page_icon="📊",
+        layout="wide"
+    )
+
+    # Menu de navigation
+    pages = {
+        "🏠 Accueil": home,
+        "⚙️ Configuration des APIs": api_config,
+        "🌐 Recherche Web": web_search
+    }
+
+    # Sélection de la page
+    page = st.sidebar.selectbox(
+        "Navigation",
+        tuple(pages.keys())
+    )
+
+    # Affichage de la page
+    pages[page].main()
+
 if __name__ == '__main__':
     main()
+    streamlit_main()
